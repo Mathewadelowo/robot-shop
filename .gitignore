@@ -4,8 +4,8 @@
 vendor/
 Gopkg.lock
 terraform-eks/.terraform/
-terraform-eks/*tfstate
-terraform-eks/*tfstate.backup
-terraform-eks/.lock.hcl
+terraform-eks/terraform.tfstate
+terraform-eks/terraform.tfstate.backup
+terraform-eks/.terraform.lock.hcl
 crash.log
 terraform-eks/.terraform.tfstate.lock.info
