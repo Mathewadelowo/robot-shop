@@ -14,6 +14,26 @@ const express = require('express');
 const pino = require('pino');
 const expPino = require('express-pino-logger');
 
+const client = require('prom-client');
+
+const register = new client.Registry();
+client.collectDefaultMetrics({ register });
+
+const httpRequestsTotal = new client.Counter({
+    name: 'catalogue_http_requests_total',
+    help: 'Total HTTP requests received by the catalogue service',
+    labelNames: ['method', 'route', 'status'],
+    registers: [register]
+});
+
+const httpRequestDuration = new client.Histogram({
+    name: 'catalogue_http_request_duration_seconds',
+    help: 'HTTP request duration in seconds',
+    labelNames: ['method', 'route', 'status'],
+    buckets: [0.005, 0.01, 0.05, 0.1, 0.5, 1, 2, 5],
+    registers: [register]
+});
+
 const logger = pino({
     level: 'info',
     prettyPrint: false,
@@ -31,6 +51,27 @@ var mongoConnected = false;
 const app = express();
 
 app.use(expLogger);
+
+app.use((req, res, next) => {
+    const start = process.hrtime();
+
+    res.on('finish', () => {
+        const elapsed = process.hrtime(start);
+        const duration = elapsed[0] + elapsed[1] / 1e9;
+
+        const route = req.route ? req.route.path : req.path;
+        const labels = {
+            method: req.method,
+            route: route,
+            status: String(res.statusCode)
+        };
+
+        httpRequestsTotal.inc(labels);
+        httpRequestDuration.observe(labels, duration);
+    });
+
+    next();
+});
 
 app.use((req, res, next) => {
     res.set('Timing-Allow-Origin', '*');
@@ -52,8 +93,15 @@ app.use((req, res, next) => {
     next();
 });
 
+app.get('/metrics', async (req, res) => {
+    res.set('Content-Type', register.contentType);
+    res.end(await register.metrics());
+});
+
 app.use(bodyParser.urlencoded({ extended: true }));
 app.use(bodyParser.json());
+
+
 
 app.get('/health', (req, res) => {
     var stat = {
