@@ -9,3 +9,8 @@ terraform-eks/terraform.tfstate.backup
 terraform-eks/.terraform.lock.hcl
 crash.log
 terraform-eks/.terraform.tfstate.lock.info
+# Node.js dependencies
+node_modules/
+
+# Local backup files
+*.backup*.pyc

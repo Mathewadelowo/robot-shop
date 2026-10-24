@@ -1,0 +1,74 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  annotations:
+    deployment.kubernetes.io/revision: "2"
+    meta.helm.sh/release-name: robot-shop
+    meta.helm.sh/release-namespace: robot-shop
+  creationTimestamp: "2026-10-24T10:03:39Z"
+  generation: 2
+  labels:
+    app.kubernetes.io/managed-by: Helm
+    service: catalogue
+  name: catalogue
+  namespace: robot-shop
+  resourceVersion: "29618"
+  uid: 5c7fb887-02b2-4492-a7f1-c4d55a473486
+spec:
+  progressDeadlineSeconds: 600
+  replicas: 1
+  revisionHistoryLimit: 10
+  selector:
+    matchLabels:
+      service: catalogue
+  strategy:
+    rollingUpdate:
+      maxSurge: 25%
+      maxUnavailable: 25%
+    type: RollingUpdate
+  template:
+    metadata:
+      labels:
+        service: catalogue
+    spec:
+      containers:
+      - image: devsmaus/rs-catalogue:latest
+        imagePullPolicy: IfNotPresent
+        name: catalogue
+        ports:
+        - containerPort: 8080
+          protocol: TCP
+        resources:
+          limits:
+            cpu: 200m
+            memory: 100Mi
+          requests:
+            cpu: 100m
+            memory: 50Mi
+        terminationMessagePath: /dev/termination-log
+        terminationMessagePolicy: File
+      dnsPolicy: ClusterFirst
+      restartPolicy: Always
+      schedulerName: default-scheduler
+      securityContext: {}
+      terminationGracePeriodSeconds: 30
+status:
+  availableReplicas: 1
+  conditions:
+  - lastTransitionTime: "2026-10-24T10:04:15Z"
+    lastUpdateTime: "2026-10-24T10:04:15Z"
+    message: Deployment has minimum availability.
+    reason: MinimumReplicasAvailable
+    status: "True"
+    type: Available
+  - lastTransitionTime: "2026-10-24T10:03:39Z"
+    lastUpdateTime: "2026-10-24T12:41:31Z"
+    message: ReplicaSet "catalogue-7554867bc5" has successfully progressed.
+    reason: NewReplicaSetAvailable
+    status: "True"
+    type: Progressing
+  observedGeneration: 2
+  readyReplicas: 1
+  replicas: 1
+  terminatingReplicas: 0
+  updatedReplicas: 1

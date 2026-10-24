@@ -7,6 +7,22 @@ instana({
     }
 });
 
+const { NodeSDK } = require('@opentelemetry/sdk-node');
+const {
+  getNodeAutoInstrumentations
+} = require('@opentelemetry/auto-instrumentations-node');
+const { OTLPTraceExporter } = require('@opentelemetry/exporter-trace-otlp-http');
+
+const otelSDK = new NodeSDK({
+  traceExporter: new OTLPTraceExporter({
+    url: 'http://otel-collector.monitoring.svc.cluster.local:4318/v1/traces'
+  }),
+  instrumentations: [getNodeAutoInstrumentations()]
+});
+
+otelSDK.start();
+
+
 const mongoClient = require('mongodb').MongoClient;
 const mongoObjectID = require('mongodb').ObjectID;
 const bodyParser = require('body-parser');
@@ -42,6 +58,9 @@ const logger = pino({
 const expLogger = expPino({
     logger: logger
 });
+
+
+
 
 // MongoDB
 var db;
@@ -92,6 +111,10 @@ app.use((req, res, next) => {
 
     next();
 });
+
+
+
+
 
 app.get('/metrics', async (req, res) => {
     res.set('Content-Type', register.contentType);

@@ -1,0 +1,33 @@
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: trace-verification
+  namespace: monitoring
+spec:
+  backoffLimit: 1
+  template:
+    metadata:
+      labels:
+        app: trace-verification
+    spec:
+      restartPolicy: Never
+      containers:
+        - name: trace-verification
+          image: python:3.11-slim
+          command:
+            - python
+            - /scripts/trace_critical_workflow.py
+          volumeMounts:
+            - name: script
+              mountPath: /scripts
+          resources:
+            requests:
+              cpu: 50m
+              memory: 64Mi
+            limits:
+              cpu: 250m
+              memory: 256Mi
+      volumes:
+        - name: script
+          configMap:
+            name: trace-verification-script
