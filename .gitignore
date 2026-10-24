@@ -3,3 +3,9 @@
 *-private.*
 vendor/
 Gopkg.lock
+terraform-eks/.terraform/
+terraform-eks/*tfstate
+terraform-eks/*tfstate.backup
+terraform-eks/.lock.hcl
+crash.log
+terraform-eks/.terraform.tfstate.lock.info
