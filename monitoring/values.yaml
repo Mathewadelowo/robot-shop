@@ -1,0 +1,86 @@
+# Minimal kube-prometheus-stack values for this cluster.
+# Save as monitoring/values.yaml in the repo. It contains no secrets.
+#
+# Why these choices (be ready to explain them):
+# - No persistent volumes: the cluster has no EBS CSI driver and no default
+#   StorageClass, so a volume claim would stay Pending. Prometheus, Alertmanager
+#   and Grafana use ephemeral storage. Cost: metrics and dashboards created in the
+#   UI are lost when a pod restarts. Keep dashboards in Git as ConfigMaps.
+# - Small CPU requests: CPU is the tight resource on the two nodes.
+# - Memory limits on Prometheus: stops it from starving the node.
+
+# EKS does not expose the control plane, so these scrape targets would show as
+# down. Disabling them also disables their default alert rules.
+kubeEtcd:
+  enabled: false
+kubeControllerManager:
+  enabled: false
+kubeScheduler:
+  enabled: false
+kubeProxy:
+  enabled: false
+
+prometheus:
+  prometheusSpec:
+    retention: 24h
+    # No storageSpec on purpose, so Prometheus uses an emptyDir volume.
+    # Let Prometheus find ServiceMonitors and PodMonitors that are not labelled
+    # with this Helm release (needed later for Robot Shop metrics).
+    serviceMonitorSelectorNilUsesHelmValues: false
+    podMonitorSelectorNilUsesHelmValues: false
+    resources:
+      requests:
+        cpu: 200m
+        memory: 512Mi
+      limits:
+        memory: 1536Mi
+
+alertmanager:
+  alertmanagerSpec:
+    # No storage block, so Alertmanager uses an emptyDir volume.
+    resources:
+      requests:
+        cpu: 25m
+        memory: 64Mi
+      limits:
+        memory: 128Mi
+
+grafana:
+  persistence:
+    enabled: false
+  # The admin login comes from a Kubernetes Secret you create before installing,
+  # so no password is written in this file.
+  admin:
+    existingSecret: grafana-admin
+    userKey: admin-user
+    passwordKey: admin-password
+  resources:
+    requests:
+      cpu: 100m
+      memory: 128Mi
+    limits:
+      memory: 256Mi
+
+prometheusOperator:
+  resources:
+    requests:
+      cpu: 50m
+      memory: 64Mi
+    limits:
+      memory: 128Mi
+
+kube-state-metrics:
+  resources:
+    requests:
+      cpu: 25m
+      memory: 64Mi
+    limits:
+      memory: 128Mi
+
+prometheus-node-exporter:
+  resources:
+    requests:
+      cpu: 25m
+      memory: 32Mi
+    limits:
+      memory: 64Mi
