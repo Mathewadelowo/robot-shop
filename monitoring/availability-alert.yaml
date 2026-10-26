@@ -10,10 +10,14 @@ spec:
     - name: robot-shop.availability
       rules:
         - alert: CatalogueServiceDown
-          expr: up{namespace="robot-shop",service="catalogue"} == 0
+          expr: |
+           (up{namespace="robot-shop",service="catalogue"} == 0)
+           or
+           absent(up{namespace="robot-shop",service="catalogue"})
           for: 2m
           labels:
             severity: critical
           annotations:
             summary: "Robot Shop Catalogue is down"
             description: "Prometheus has been unable to scrape the Catalogue service for more than 2 minutes."
+            runbook_url: "https://github.com/mathewadelowo/robot-shop/blob/main/docs/runbook.md"
