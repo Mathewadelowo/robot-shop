@@ -128,27 +128,9 @@ The repository contains tracing-related configuration and Jaeger evidence. OpenT
 
 Traces are only available when services are instrumented and spans are successfully exported to the configured collector/backend. Captured traces demonstrate specific examples, not complete tracing coverage across all services.
 
-## 4. Technology Stack
 
-| Technology | Purpose |
-|---|---|
-| AWS | Cloud platform |
-| Amazon EKS | Managed Kubernetes |
-| Terraform | Infrastructure as code, if the checked-out configuration manages the environment |
-| Docker | Container image building |
-| Kubernetes | Container orchestration |
-| Helm | Application and observability configuration where configured |
-| Prometheus | Metrics collection and alert evaluation |
-| Grafana | Metrics visualization and exploration |
-| Loki | Centralized log storage and querying |
-| Fluent Bit | Log collection and forwarding |
-| OpenTelemetry | Telemetry collection/export for instrumented services |
-| Jaeger | Distributed trace inspection |
-| Alertmanager | Alert grouping and notification routing |
-| Slack | Operational notifications |
-| Git and GitHub | Version control and collaboration |
 
-## 5. Repository Guide
+## 4. Repository Guide
 
 The following is a guide to known components and paths. Confirm exact paths in your current checkout before running commands.
 
@@ -184,7 +166,7 @@ The tree is representative, not exhaustive. A Terraform directory or Kubernetes 
 
 The upstream `README.md` describes the sample application. Keep this capstone documentation separate unless you intentionally decide to edit the upstream README.
 
-## 6. Environment Notes
+## 5. Environment Notes
 
 The working environment described during this project included:
 
@@ -196,7 +178,7 @@ The working environment described during this project included:
 
 These values describe the environment used during the work; they are not guarantees about your current AWS account or cluster. Verify your active AWS identity, Kubernetes context, namespaces, and Helm releases before making changes.
 
-## 7. Getting Started and Verification
+## 6. Getting Started and Verification
 
 ### Prerequisites
 
@@ -356,7 +338,7 @@ The project work confirmed that a controlled `SlackDeliveryTest` notification wa
 
 A successful test notification validates the test delivery path. It does not establish that every service has an alert or that Catalogue is currently down.
 
-## 8. Useful Port-Forward Commands
+## 7. Useful Port-Forward Commands
 
 First check actual service names and ports:
 
@@ -411,7 +393,7 @@ kubectl logs -n robot-shop deployment/catalogue
 
 Confirm the actual deployment name first.
 
-## 9. Availability SLO and Error Budget
+## 8. Availability SLO and Error Budget
 
 The project documents a **99.9% availability objective over a rolling 30-day window**.
 
@@ -434,7 +416,7 @@ This is the theoretical error budget for the stated window and target. It is not
 **Current limitation:** the Catalogue alert detects scrape failure or an absent target series, but a validated rolling 30-day SLO calculation and error-budget consumption metric remain to be implemented. Define the service boundary and availability signal before reporting SLO compliance or extending the objective to the entire application.
 
 
-## 10. Troubleshooting Guide
+## 9. Troubleshooting Guide
 
 | Symptom | Checks |
 |---|---|
@@ -448,7 +430,7 @@ This is the theoretical error budget for the stated window and target. It is not
 
 Use `monitoring/docs/runbook.md` if it exists in your checkout for environment-specific troubleshooting steps. Record significant incidents, root causes, and follow-up actions in `monitoring/docs/postmortem.md` if that file is maintained by the project.
 
-## 11. Security and Cost Management
+## 10. Security and Cost Management
 
 - **Credentials:** Use approved AWS authentication and Kubernetes Secrets or an approved secret manager for sensitive values.
 - **Git hygiene:** Do not commit webhook URLs, tokens, passwords, private keys, local credentials, Terraform state, or generated manifests containing secrets.
@@ -458,50 +440,17 @@ Use `monitoring/docs/runbook.md` if it exists in your checkout for environment-s
 - **Production readiness:** Review access control, network exposure, encryption, backups, and alert coverage before production use.
 - **Sample application limitations:** The upstream Robot Shop README describes the application as a learning sandbox, not a production-secure reference without additional hardening.
 
-## 12. Cleanup
 
-> **Warning:** Cleanup can permanently remove workloads, data, storage, and cloud infrastructure. Confirm the AWS account, Kubernetes context, namespace, and resource ownership first.
+## 11. Project Documentation and Evidence
 
-Inspect releases and persistent volume claims:
-
-```bash
-helm list -A
-kubectl get pvc -A
-```
-
-Only uninstall releases that you have confirmed belong to this project and are no longer needed. For example, if those exact releases exist and are safe to remove:
-
-```bash
-helm uninstall robot-shop -n robot-shop
-helm uninstall monitoring -n monitoring
-```
-
-These are examples, not commands to run blindly. Loki may be a separate Helm release, and removing a release does not necessarily remove persistent volumes or every cloud resource.
-
-If Terraform manages the infrastructure, inspect the destroy plan from the correct directory:
-
-```bash
-terraform -chdir=<terraform-directory> plan -destroy
-```
-
-Run `terraform destroy` only when you intentionally want to delete the Terraform-managed environment and have verified the plan. Check for AWS resources created outside Terraform separately.
-
-## 13. Project Documentation and Evidence
-
-- `monitoring/docs/runbook.md` — operational troubleshooting, if present.
-- `monitoring/docs/postmortem.md` — incident analysis and follow-up actions, if present.
+- `monitoring/docs/runbook.md` — operational troubleshooting.
+- `monitoring/docs/postmortem.md` — incident analysis and follow-up actions.
 - `monitoring/availability-alert.yaml` — Catalogue availability alert example.
 - `monitoring/slack-test-alert.yaml` — Slack delivery test rule.
 - `tracing/` — tracing configuration and captured evidence.
 - `monitoring/` values files — monitoring, Loki, and Fluent Bit configuration.
+.
 
-Ensure screenshots used in a report do not expose webhook URLs, passwords, tokens, account identifiers, or other secrets.
-
-## 14. Project Status Summary
-
-Capstone Project 2 combines the Robot Shop microservices workload with EKS/Kubernetes operations and an observability stack. The Slack test notification was verified, and the Catalogue availability rule is documented as one example of service-level alerting.
-
-Prometheus target coverage, Grafana dashboards, Loki log ingestion, Jaeger trace coverage, and service-specific alerts should be reported as complete only to the extent they have been independently verified in the target environment. The rolling SLO measurement remains unfinished and must not be presented as measured availability.
 """
 
 
