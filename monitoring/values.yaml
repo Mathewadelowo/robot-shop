@@ -37,13 +37,15 @@ prometheus:
 
 alertmanager:
   alertmanagerSpec:
-    # No storage block, so Alertmanager uses an emptyDir volume.
+    alertmanagerConfigMatcherStrategy:
+      type: None
     resources:
       requests:
         cpu: 25m
         memory: 64Mi
       limits:
         memory: 128Mi
+
 
 grafana:
   persistence:

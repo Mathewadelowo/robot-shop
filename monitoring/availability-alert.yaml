@@ -20,4 +20,4 @@ spec:
           annotations:
             summary: "Robot Shop Catalogue is down"
             description: "Prometheus has been unable to scrape the Catalogue service for more than 2 minutes."
-            runbook_url: "https://github.com/mathewadelowo/robot-shop/blob/main/docs/runbook.md"
+            runbook_url: "https://github.com/mathewadelowo/robot-shop/blob/main/monitoring/docs/runbook.md"

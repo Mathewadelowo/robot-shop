@@ -1,0 +1,20 @@
+﻿apiVersion: monitoring.coreos.com/v1
+kind: PrometheusRule
+metadata:
+  name: slack-delivery-test
+  namespace: monitoring
+  labels:
+    release: monitoring
+spec:
+  groups:
+    - name: slack-delivery-test
+      rules:
+        - alert: SlackDeliveryTest
+          expr: vector(1)
+          for: 1m
+          labels:
+            namespace: monitoring
+            severity: warning
+          annotations:
+            summary: "Robot Shop Slack delivery test"
+            description: "Test notification from the Robot Shop monitoring stack."
