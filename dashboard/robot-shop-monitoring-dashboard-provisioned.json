@@ -5,8 +5,8 @@
     "name": "ad7zwm7",
     "namespace": "default",
     "uid": "8b3b698b-e85a-40b1-8c56-19f6b8807765",
-    "resourceVersion": "1793110683180016",
-    "generation": 4,
+    "resourceVersion": "1793144946000006",
+    "generation": 11,
     "creationTimestamp": "2026-10-26T14:24:21Z",
     "labels": {
       "grafana.app/deprecatedInternalID": "1789451466567680"
@@ -15,7 +15,7 @@
       "grafana.app/createdBy": "user:dg2dcco0sv3lsf",
       "grafana.app/saved-from-ui": "Grafana v13.2.4 (0e79aef9d9)",
       "grafana.app/updatedBy": "user:dg2dcco0sv3lsf",
-      "grafana.app/updatedTimestamp": "2026-10-27T14:18:03Z"
+      "grafana.app/updatedTimestamp": "2026-10-27T23:49:05Z"
     }
   },
   "spec": {
@@ -395,7 +395,7 @@
         "kind": "Panel",
         "spec": {
           "id": 4,
-          "title": "Robot Shop â€” Container Restarts",
+          "title": "Robot Shop Container Restarts",
           "description": "",
           "links": [],
           "data": {
@@ -510,7 +510,7 @@
         "kind": "Panel",
         "spec": {
           "id": 5,
-          "title": "Robot Shop â€” CPU Usage by Pod",
+          "title": "Robot Shop CPU Usage by Pod",
           "description": "",
           "links": [],
           "data": {
@@ -716,6 +716,190 @@
             }
           }
         }
+      },
+      "panel-7": {
+        "kind": "Panel",
+        "spec": {
+          "id": 7,
+          "title": "SLI – Successful Request Rate (30d)",
+          "description": "Percentage of eligible Robot Shop catalogue requests returning HTTP 2xx responses over the last 30 days",
+          "links": [],
+          "data": {
+            "kind": "QueryGroup",
+            "spec": {
+              "queries": [
+                {
+                  "kind": "PanelQuery",
+                  "spec": {
+                    "query": {
+                      "kind": "DataQuery",
+                      "group": "prometheus",
+                      "version": "v0",
+                      "datasource": {
+                        "name": "prometheus"
+                      },
+                      "spec": {
+                        "editorMode": "code",
+                        "expr": "100 *\r\nsum(increase(catalogue_http_requests_total{\r\n  status=~\"2..\"\r\n}[30d]))\r\n/\r\nsum(increase(catalogue_http_requests_total{\r\n  status=~\"[2-5]..\"\r\n}[30d]))",
+                        "legendFormat": "__auto",
+                        "range": true
+                      }
+                    },
+                    "refId": "A",
+                    "hidden": false
+                  }
+                }
+              ],
+              "transformations": [],
+              "queryOptions": {}
+            }
+          },
+          "vizConfig": {
+            "kind": "VizConfig",
+            "group": "stat",
+            "version": "13.2.4",
+            "spec": {
+              "options": {
+                "colorMode": "value",
+                "graphMode": "area",
+                "justifyMode": "auto",
+                "orientation": "auto",
+                "percentChangeColorMode": "same_as_value",
+                "reduceOptions": {
+                  "calcs": [],
+                  "fields": "",
+                  "values": false
+                },
+                "showPercentChange": false,
+                "textMode": "auto",
+                "wideLayout": true
+              },
+              "fieldConfig": {
+                "defaults": {
+                  "unit": "percent",
+                  "thresholds": {
+                    "mode": "percentage",
+                    "steps": [
+                      {
+                        "value": 0,
+                        "color": "green"
+                      },
+                      {
+                        "value": 90,
+                        "color": "red"
+                      }
+                    ]
+                  },
+                  "color": {
+                    "mode": "thresholds"
+                  }
+                },
+                "overrides": []
+              }
+            }
+          }
+        }
+      },
+      "panel-8": {
+        "kind": "Panel",
+        "spec": {
+          "id": 8,
+          "title": "SLO – 99.9% Success Target (30d)",
+          "description": "Evaluates whether the Robot Shop catalogue service meets its 99.9% successful request rate target over the last 30 days. Returns 1 when the target is met and 0 when it is not met, based on HTTP 2xx responses compared with eligible HTTP 2xx–5xx responses",
+          "links": [],
+          "data": {
+            "kind": "QueryGroup",
+            "spec": {
+              "queries": [
+                {
+                  "kind": "PanelQuery",
+                  "spec": {
+                    "query": {
+                      "kind": "DataQuery",
+                      "group": "prometheus",
+                      "version": "v0",
+                      "datasource": {
+                        "name": "prometheus"
+                      },
+                      "spec": {
+                        "editorMode": "code",
+                        "expr": "(\r\n  100 *\r\n  sum(increase(catalogue_http_requests_total{\r\n    status=~\"2..\"\r\n  }[30d]))\r\n  /\r\n  sum(increase(catalogue_http_requests_total{\r\n    status=~\"[2-5]..\"\r\n  }[30d]))\r\n) >= bool 99.9",
+                        "legendFormat": "__auto",
+                        "range": true
+                      }
+                    },
+                    "refId": "A",
+                    "hidden": false
+                  }
+                }
+              ],
+              "transformations": [],
+              "queryOptions": {}
+            }
+          },
+          "vizConfig": {
+            "kind": "VizConfig",
+            "group": "stat",
+            "version": "13.2.4",
+            "spec": {
+              "options": {
+                "colorMode": "value",
+                "graphMode": "area",
+                "justifyMode": "auto",
+                "orientation": "auto",
+                "percentChangeColorMode": "standard",
+                "reduceOptions": {
+                  "calcs": [
+                    "lastNotNull"
+                  ],
+                  "fields": "",
+                  "values": false
+                },
+                "showPercentChange": false,
+                "textMode": "auto",
+                "wideLayout": true
+              },
+              "fieldConfig": {
+                "defaults": {
+                  "mappings": [
+                    {
+                      "type": "value",
+                      "options": {
+                        "0": {
+                          "text": "SLO Breached",
+                          "color": "red",
+                          "index": 1
+                        },
+                        "1": {
+                          "text": "SLO Met",
+                          "color": "green",
+                          "index": 0
+                        }
+                      }
+                    }
+                  ],
+                  "thresholds": {
+                    "mode": "absolute",
+                    "steps": [
+                      {
+                        "value": 0,
+                        "color": "green"
+                      },
+                      {
+                        "value": 80,
+                        "color": "red"
+                      }
+                    ]
+                  },
+                  "color": {
+                    "mode": "thresholds"
+                  }
+                },
+                "overrides": []
+              }
+            }
+          }
+        }
       }
     },
     "layout": {
@@ -727,24 +911,24 @@
             "spec": {
               "x": 0,
               "y": 0,
-              "width": 12,
-              "height": 6,
+              "width": 8,
+              "height": 4,
               "element": {
                 "kind": "ElementReference",
-                "name": "panel-1"
+                "name": "panel-7"
               }
             }
           },
           {
             "kind": "GridLayoutItem",
             "spec": {
-              "x": 12,
+              "x": 8,
               "y": 0,
-              "width": 12,
-              "height": 6,
+              "width": 8,
+              "height": 4,
               "element": {
                 "kind": "ElementReference",
-                "name": "panel-2"
+                "name": "panel-8"
               }
             }
           },
@@ -752,7 +936,7 @@
             "kind": "GridLayoutItem",
             "spec": {
               "x": 0,
-              "y": 6,
+              "y": 4,
               "width": 12,
               "height": 5,
               "element": {
@@ -765,12 +949,12 @@
             "kind": "GridLayoutItem",
             "spec": {
               "x": 12,
-              "y": 6,
+              "y": 4,
               "width": 12,
-              "height": 5,
+              "height": 6,
               "element": {
                 "kind": "ElementReference",
-                "name": "panel-4"
+                "name": "panel-2"
               }
             }
           },
@@ -778,7 +962,7 @@
             "kind": "GridLayoutItem",
             "spec": {
               "x": 0,
-              "y": 11,
+              "y": 9,
               "width": 12,
               "height": 8,
               "element": {
@@ -791,7 +975,33 @@
             "kind": "GridLayoutItem",
             "spec": {
               "x": 12,
-              "y": 11,
+              "y": 10,
+              "width": 12,
+              "height": 6,
+              "element": {
+                "kind": "ElementReference",
+                "name": "panel-1"
+              }
+            }
+          },
+          {
+            "kind": "GridLayoutItem",
+            "spec": {
+              "x": 12,
+              "y": 16,
+              "width": 12,
+              "height": 5,
+              "element": {
+                "kind": "ElementReference",
+                "name": "panel-4"
+              }
+            }
+          },
+          {
+            "kind": "GridLayoutItem",
+            "spec": {
+              "x": 0,
+              "y": 17,
               "width": 12,
               "height": 8,
               "element": {

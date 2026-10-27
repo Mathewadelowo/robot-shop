@@ -1,447 +1,491 @@
-# Robot Shop on Amazon EKS — Capstone Project 2
-
-A cloud-native microservices project that deploys the Robot Shop sample application on Amazon EKS and adds an observability workflow for metrics, dashboards, centralized logs, distributed traces, and Slack alert notifications.
+# Robot Shop on Amazon EKS --- Capstone Project Documentation
 
 ## 1. Project Overview
 
-Capstone Project 2 brings together a multi-service application and operational tooling to demonstrate how a containerized workload can be deployed, observed, and troubleshot on Kubernetes.
+This project deploys the Robot Shop microservices application on Amazon
+Elastic Kubernetes Service (Amazon EKS) and documents metrics,
+dashboards, logging, tracing, alerting, and operations.
 
 ### Objectives
 
-- Deploy and operate Robot Shop on Amazon EKS.
-- Use Docker and Kubernetes to package and orchestrate application components.
-- Manage application and observability configuration with Helm where configured.
-- Collect and explore metrics with Prometheus and Grafana.
-- Forward and query logs with Fluent Bit and Loki.
-- Support distributed tracing with OpenTelemetry and Jaeger for instrumented requests.
-- Route alerts through Alertmanager and deliver notifications to Slack.
-- Document verification steps, troubleshooting, incident learnings, and cleanup.
-- Define a 99.9% availability objective and calculate its theoretical error budget without confusing a target with measured performance.
+-   Deploy and operate the application on Kubernetes.
+-   Monitor traffic, errors, latency, pod restarts, CPU, and memory.
+-   Collect and query application logs.
+-   Enable distributed tracing where instrumentation is configured.
+-   Configure alerting and validate notification delivery.
+-   Document deployment verification, troubleshooting, security, and
+    cleanup.
 
-### Key capabilities
+### Technology Stack
 
-- **Cloud platform:** AWS and Amazon EKS.
-- **Containerization and orchestration:** Docker and Kubernetes.
-- **Deployment configuration:** Helm, where the repository's deployment setup uses it.
-- **Metrics and dashboards:** Prometheus and Grafana.
-- **Logs:** Fluent Bit and Loki, subject to the active configuration.
-- **Tracing:** OpenTelemetry and Jaeger for instrumented services.
-- **Alerting:** Prometheus rules, Alertmanager routing, and Slack notifications.
-- **Operational practice:** Runbook, postmortem notes, verification checklist, and secret-handling guidance.
+  -----------------------------------------------------------------------
+  Area                                Technology
+  ----------------------------------- -----------------------------------
+  Cloud                               AWS
 
-## 2. Application Architecture
-This diagram is conceptual. 
+  Kubernetes                          Amazon EKS
 
-```text
-                        Browser / User
-                              |
-                              v
-                         Web front end
-                              |
-              +---------------+----------------+
-              |               |                |
-              v               v                v
-          Catalogue          Cart              User
-              |               |                |
-              +---------------+----------------+
-                              |
-                     Application workflows
-                              |
-             +----------------+----------------+
-             |                |                |
-             v                v                v
-          Payment          Shipping          Ratings
-                              |
-                              v
-                           Dispatch
+  Containers                          Docker
 
+  Deployment                          Kubernetes, Helm
+
+  Metrics and dashboards              Prometheus, Grafana
+
+  Logs                                Fluent Bit, Loki
+
+  Distributed tracing                 OpenTelemetry, Jaeger
+
+  Alerting                            Prometheus Alertmanager,
+                                      AlertmanagerConfig, Slack webhook
+
+  Infrastructure as code              Terraform
+  -----------------------------------------------------------------------
+
+Verify the current manifests and deployed resources before treating
+every listed component as active in the environment.
+
+## 2. Architecture
+
+### Application architecture
+
+``` text
+Users
+  |
+  v
+Kubernetes entry point / ingress (if configured)
+  |
+  v
+Robot Shop frontend
+  |
+  +--> Catalogue
+  +--> Cart
+  +--> User
+  +--> Payment
+  +--> Shipping
+  +--> Ratings
+  +--> Supporting services
 ```
 
+The exact services and traffic paths depend on the manifests deployed in
+the cluster.
 
+### Observability architecture
 
-## 3. Observability Architecture
-
-```text
-Robot Shop workloads in Kubernetes
-       |                 |                  |
-       | metrics         | logs             | traces, when instrumented
-       v                 v                  v
-   Prometheus         Fluent Bit        OpenTelemetry
-       |                 |                  |
-       v                 v                  v
-   Alert rules          Loki              Jaeger
-       |
-       v
-   Alertmanager
-       |
-       v
-   Slack #alerts
-
-Grafana: dashboards and metrics exploration
+``` text
+Application and Kubernetes workloads
+  |
+  +--> Prometheus --> Grafana dashboards
+  |         |
+  |         +--> Alertmanager --> Slack notifications (when configured)
+  |
+  +--> Fluent Bit --> Loki --> Log queries
+  |
+  +--> OpenTelemetry instrumentation/collector --> Jaeger (when configured)
 ```
 
-This represents the intended architecture. Actual coverage depends on configured scrape targets, log inputs, instrumentation, collector configuration, and deployed resources.
+## 3. Repository Guide
 
-### Prometheus and Grafana
+Review the application service directories and Kubernetes configuration,
+Helm chart and values files, Prometheus/Grafana configuration, Fluent
+Bit/Loki settings, alert rules, tracing configuration, and Terraform
+files where present.
 
-Prometheus collects metrics from configured targets and evaluates `PrometheusRule` resources. Grafana is used to explore metrics and dashboards.
+Monitoring-related files referenced during project work include: -
+`values.yaml` - `loki-values.yaml` - `fluent-bit-values.yaml` -
+`availability-alert.yaml` - `slack-test-alert.yaml` -
+`docs/runbook.md` - `docs/postmortem.md` - `tracing/`
 
-Verification should include checking that expected targets are discovered and healthy, alert rules are loaded, and dashboards show relevant data. A configured rule alone does not prove that every service is monitored.
+Check the repository for the exact paths and filenames in the current
+branch.
 
-### Alertmanager and Slack
+## 4. Environment and Prerequisites
 
-During this project, the Slack notification path was tested:
+  Setting                                  Value
+  ---------------------------------------- ----------------------
+  AWS region                               `us-east-1`
+  EKS cluster name used in the project     `voting-app-cluster`
+  Application namespace                    `robot-shop`
+  Monitoring namespace                     `monitoring`
+  Helm release referenced in the project   `monitoring`
 
-- An `AlertmanagerConfig` named `robot-shop-slack` was configured in the `monitoring` namespace.
-- The Slack receiver uses the Kubernetes Secret `slack-webhook`.
-- The route matches `CatalogueServiceDown` and `SlackDeliveryTest`, with a namespace matcher for `monitoring`.
-- The test rule was given the `namespace: monitoring` label to match the route.
-- A Slack test notification was received successfully.
-
-**What this demonstrates:** the controlled test alert reached Slack through the configured routing path. It does not prove that every service has a production alert, that a real outage occurred, or that the application meets an availability target.
-
-Never commit the Slack webhook URL or print secret values in terminal output. If a webhook is exposed, revoke it and create a replacement.
-
-### Catalogue availability alert example
-
-The repository includes `monitoring/availability-alert.yaml`, which defines the `CatalogueServiceDown` alert. The rule checks the configured Prometheus `up` series for the Catalogue service in the `robot-shop` namespace and handles the absence of the expected series. It has a two-minute pending period and critical severity.
-
-A possible PromQL query for the target is:
-
-```promql
-up{namespace="robot-shop", service="catalogue"}
-```
-
-Confirm the actual labels in Prometheus before relying on this exact query. A value of `1` means the target was scraped successfully at that evaluation time; `0` means the target was discovered but the scrape failed. An absent result may indicate that the target was not discovered or that the series is absent.
-
-Catalogue is one service in Robot Shop. Extend alert coverage for other services based on project requirements and metrics that are actually available.
-
-### Centralized logging: Fluent Bit and Loki
-
-The repository includes `monitoring/fluent-bit-values.yaml` and `monitoring/loki-values.yaml`. Fluent Bit is intended to forward logs, while Loki provides storage and querying.
-
-Verify which namespaces, pods, and containers are collected. Confirm the configured Loki endpoint and Fluent Bit output before changing or upgrading the deployment. The repository also contains a `fluentd` directory; do not assume Fluentd is part of the active Fluent Bit-to-Loki path without inspecting its manifests and purpose.
-
-### Distributed tracing: OpenTelemetry and Jaeger
-
-The repository contains tracing-related configuration and Jaeger evidence. OpenTelemetry and Jaeger can support collection and inspection of distributed traces for instrumented request paths.
-
-Traces are only available when services are instrumented and spans are successfully exported to the configured collector/backend. Captured traces demonstrate specific examples, not complete tracing coverage across all services.
-
-
-
-## 4. Repository Guide
-
-The following is a guide to known components and paths. Confirm exact paths in your current checkout before running commands.
-
-```text
-robot-shop/
-├── web/
-├── catalogue/
-├── cart/
-├── user/
-├── payment/
-├── shipping/
-├── ratings/
-├── dispatch/
-├── mongo/
-├── mysql/
-├── load-gen/
-├── fluentd/
-├── monitoring/
-│   ├── values.yaml
-│   ├── loki-values.yaml
-│   ├── fluent-bit-values.yaml
-│   ├── availability-alert.yaml
-│   ├── slack-test-alert.yaml
-│   └── docs/
-│       ├── runbook.md
-│       └── postmortem.md
-└── tracing/
-```
-
-The tree is representative, not exhaustive. A Terraform directory or Kubernetes Helm chart directory may exist in your checkout, but verify that before following any infrastructure or installation commands.
-
-`monitoring/rendered.yaml`, if present locally, is generated Helm-rendered output for inspection. Do not apply it separately without confirming the intended deployment method, because it may conflict with resources managed by Helm. Inspect generated manifests for sensitive values before sharing or committing them.
-
-The upstream `README.md` describes the sample application. Keep this capstone documentation separate unless you intentionally decide to edit the upstream README.
-
-## 5. Environment Notes
-
-The working environment described during this project included:
-
-- **EKS cluster:** `voting-app-cluster`
-- **AWS region:** `us-east-1`
-- **Monitoring namespace:** `monitoring`
-- **kube-prometheus-stack Helm release:** `monitoring`
-- **Application namespace referenced by the alert:** `robot-shop`
-
-These values describe the environment used during the work; they are not guarantees about your current AWS account or cluster. Verify your active AWS identity, Kubernetes context, namespaces, and Helm releases before making changes.
-
-## 6. Getting Started and Verification
+These are the documented project values. Verify them against your AWS
+account before running commands.
 
 ### Prerequisites
 
-Install and configure the tools required by your environment:
+Install and configure AWS CLI, `kubectl`, Helm, Git, and appropriate IAM
+permissions for EKS access.
 
-- Git
-- AWS CLI v2
-- `kubectl`
-- Helm 3
-- Terraform, if provisioning infrastructure from this repository
-- Docker, if building or changing application images
-- An AWS account with the necessary permissions
-
-Check tool versions:
-
-```bash
-git --version
-aws --version
-kubectl version --client
-helm version
-terraform version
-docker --version
+``` bash
+aws eks update-kubeconfig --region us-east-1 --name voting-app-cluster
+kubectl get nodes
 ```
 
-### Step 1: Open the repository
+Replace the cluster name or region if your environment differs.
 
-If you already have a checkout, use that directory. Otherwise, clone the repository URL supplied by your project owner or repository page:
+## 5. Deployment Verification
 
-```bash
-git clone <repository-url>
-cd <repository-directory>
-```
-
-Replace the placeholders with the actual repository URL and directory name.
-
-### Step 2: Verify AWS access
-
-Use your approved authentication method. For a local AWS CLI profile, you can run:
-
-```bash
-aws configure
-aws sts get-caller-identity
-aws configure get region
-```
-
-The working environment described in this project used `us-east-1`.
-
-### Step 3: Provision infrastructure only if required
-
-Only run Terraform if the Terraform configuration in your checkout manages the target infrastructure and the cluster does not already exist. First inspect the directory and its configuration. If it is present and correct, use:
-
-```bash
-terraform - <terraform-directory> init
-terraform - <terraform-directory> validate
-terraform - <terraform-directory> plan
-```
-
-Review the plan carefully before applying it. Replace `<terraform-directory>` with the actual path. Do not recreate an existing cluster just to repeat the setup.
-
-### Step 4: Connect to EKS
-
-For the working environment described above:
-
-```bash
-aws eks update-kubeconfig \
-  --region us-east-1 \
-  --name voting-app-cluster
-```
-
-Verify the active context and cluster resources:
-
-```bash
-kubectl config current-context
+``` bash
 kubectl get nodes
 kubectl get namespaces
-```
-
-Use the correct cluster and AWS account for your environment.
-
-### Step 5: Inspect Robot Shop
-
-Inspect resources before installing or upgrading anything:
-
-```bash
-kubectl get deployments,pods,services -n robot-shop
+kubectl get pods -n robot-shop
+kubectl get pods -n monitoring
+kubectl get deployments -n robot-shop
+kubectl get services -n robot-shop
+kubectl get deployments -n monitoring
+kubectl get services -n monitoring
 helm list -A
 ```
 
-For a fresh environment, inspect the actual chart path and values in the checkout before running `helm lint` or `helm install`. Do not assume a chart path exists without checking it, and do not install over an existing release.
+Inspect the monitoring Helm release:
 
-### Step 6: Inspect the monitoring stack
-
-The working environment used Helm release `monitoring` in namespace `monitoring`:
-
-```bash
+``` bash
 helm status monitoring -n monitoring
-kubectl get pods,services -n monitoring
-kubectl get prometheusrule,servicemonitor -n monitoring
 ```
 
-Review the current Helm release values and chart version before upgrading. Helm changes can affect live resources.
+Check custom monitoring resources:
 
-### Step 7: Verify services and alert rules
-
-```bash
-kubectl get deployments,pods,services -n robot-shop
-kubectl get prometheusrule -n monitoring
+``` bash
+kubectl get servicemonitors -A
+kubectl get prometheusrules -A
+kubectl get alertmanagerconfigs -A
 ```
 
-Check the Catalogue service and endpoints if those names match the deployed resources:
+A resource may be absent if the relevant chart, custom resource
+definition, or configuration has not been installed. Treat command
+output as the source of truth for the current cluster.
 
-```bash
-kubectl get svc catalogue -n robot-shop
-kubectl get endpoints catalogue -n robot-shop
+## 6. Prometheus and Grafana
+
+The examples below use catalogue metric names seen during project
+validation. If the metrics or labels differ, inspect the metrics
+available in Prometheus and adapt the queries.
+
+### Requests per second
+
+``` promql
+sum(rate(catalogue_http_requests_total{route!="/metrics"}[5m]))
 ```
 
-In Prometheus, inspect the `up` series and confirm the actual labels before using a query such as:
+Calculates the per-second request rate over five minutes, excluding the
+metrics endpoint.
 
-```promql
-up{namespace="robot-shop", service="catalogue"}
+### HTTP 5xx errors per second
+
+``` promql
+sum(rate(catalogue_http_requests_total{route!="/metrics",status=~"5.."}[5m])) or vector(0)
 ```
 
-Use the same verification approach for other services, adapting queries to metrics and targets that are actually configured.
+Calculates the rate of HTTP 5xx responses. `or vector(0)` can display
+zero when no matching series exists; verify the metric and labels before
+interpreting that as proof of zero errors.
 
-### Step 8: Verify logging
+### 95th-percentile request latency
 
-Inspect the relevant resources:
-
-```bash
-kubectl get pods,services,daemonsets -n monitoring
+``` promql
+histogram_quantile(
+  0.95,
+  sum by (le) (
+    rate(catalogue_http_request_duration_seconds_bucket{route!="/metrics"}[5m])
+  )
+)
 ```
 
-Confirm the Fluent Bit output and Loki endpoint in the deployed values. In Grafana, select the configured Loki data source and use **Explore** to query collected logs.
+Estimates p95 request duration from histogram buckets. The result is in
+seconds if the histogram uses seconds.
 
-### Step 9: Verify tracing
+### Container restarts over the last 15 minutes
 
-Inspect the repository files and deployed resources:
-
-```bash
-find tracing -maxdepth 2 -type f
-kubectl get pods,services -n monitoring
+``` promql
+sum by (pod) (
+  increase(kube_pod_container_status_restarts_total{
+    namespace="robot-shop"
+  }[15m])
+)
 ```
 
-Confirm the actual Jaeger service name and UI port before starting a port-forward. Jaeger can display traces only when requests are instrumented and spans are successfully exported.
+If filtering with `> 0` returns no data, it may mean no restarts
+occurred in the window. First check that the underlying metric exists:
 
-### Step 10: Verify Slack alerting
-
-Check resource existence without printing secret contents:
-
-```bash
-kubectl get secret slack-webhook -n monitoring
-kubectl get alertmanagerconfig -n monitoring
-kubectl get prometheusrule -n monitoring
+``` promql
+kube_pod_container_status_restarts_total{namespace="robot-shop"}
 ```
 
-The project work confirmed that a controlled `SlackDeliveryTest` notification was received. The `CatalogueServiceDown` rule also needed the namespace label required by the configured Alertmanager route.
+### CPU usage by pod
 
-A successful test notification validates the test delivery path. It does not establish that every service has an alert or that Catalogue is currently down.
+``` promql
+sum by (pod) (
+  rate(container_cpu_usage_seconds_total{
+    namespace="robot-shop",
+    container!="",
+    image!=""
+  }[5m])
+)
+```
 
-## 7. Useful Port-Forward Commands
+Estimates CPU cores used by containers, grouped by pod. Metric
+availability depends on the cluster's metrics pipeline.
 
-First check actual service names and ports:
+### Memory usage by pod
 
-```bash
+``` promql
+sum by (pod) (
+  container_memory_working_set_bytes{
+    namespace="robot-shop",
+    container!="",
+    image!=""
+  }
+)
+```
+
+Returns working-set memory in bytes, grouped by pod.
+
+### Request counts versus time series
+
+``` promql
+count by (route) (catalogue_http_request_duration_seconds_bucket)
+```
+
+This counts matching time series per route; it does **not** count HTTP
+requests. To estimate request volume over a period, use a counter
+increase query:
+
+``` promql
+sum(increase(catalogue_http_requests_total{route!="/metrics"}[15m]))
+```
+
+During earlier validation, this returned approximately 10 requests over
+15 minutes, while the 5xx rate query returned zero matching errors for
+that window. These are point-in-time observations, not guarantees about
+future traffic or overall reliability.
+
+### Access Grafana
+
+If the service is named `monitoring-grafana` and exposes port 80:
+
+``` bash
+kubectl port-forward -n monitoring svc/monitoring-grafana 3000:80
+```
+
+Then open `http://localhost:3000`. Confirm the service name and port
+with `kubectl get svc -n monitoring` if needed. Use configured
+credentials and do not commit them to Git.
+
+## 7. Logging with Fluent Bit and Loki
+
+Fluent Bit can collect container logs and forward them to Loki. Check
+logging components:
+
+``` bash
+kubectl get pods -n monitoring
 kubectl get services -n monitoring
 ```
 
-Run each port-forward in a separate terminal and leave it running while using the local interface. The following service names are examples; use the names returned by your cluster.
+Inspect Fluent Bit logs if records are missing:
 
-### Prometheus
-
-```bash
-kubectl port-forward -n monitoring \
-  svc/<prometheus-service-name> 9090:9090
+``` bash
+kubectl logs -n monitoring -l app.kubernetes.io/name=fluent-bit --tail=100
 ```
 
-Open `http://localhost:9090`.
+The label selector may differ by chart version. Use
+`kubectl get pods -n monitoring --show-labels` to identify the correct
+selector.
 
-### Alertmanager
+The Loki gateway address referenced in this project is:
 
-```bash
-kubectl port-forward -n monitoring \
-  svc/<alertmanager-service-name> 9093:9093
+``` text
+loki-gateway.monitoring.svc.cluster.local:80
 ```
 
-Open `http://localhost:9093`.
+Verify the service exists before relying on that address. Review Loki
+persistence and retention settings before using the stack for long-term
+logging. If persistence is disabled, logs may not survive pod
+replacement or storage lifecycle events.
 
-### Grafana
+## 8. Distributed Tracing with OpenTelemetry and Jaeger
 
-Use the actual Grafana service name and service port. For example, if the service is `monitoring-grafana` and exposes port `80`:
+Distributed tracing helps follow requests across services and identify
+latency or errors. OpenTelemetry and Jaeger are included in the
+project's observability design/configuration.
 
-```bash
-kubectl port-forward -n monitoring \
-  svc/monitoring-grafana 3000:80
-```
+Verify tracing resources:
 
-Open `http://localhost:3000` and use the credentials configured for your deployment. Do not put passwords in this document.
-
-### General health checks
-
-```bash
-kubectl get pods -n robot-shop
-kubectl get services -n robot-shop
+``` bash
 kubectl get pods -n monitoring
+kubectl get services -n monitoring
+kubectl get pods -A | grep -Ei 'otel|opentelemetry|jaeger'
 ```
 
-If the workload is deployed as `deployment/catalogue`, its logs can be inspected with:
+Tracing requires application instrumentation or trace generation, a
+configured exporter/collector path, and a reachable trace backend.
+Installing a backend alone does not prove that application traces are
+being generated or received.
 
-```bash
-kubectl logs -n robot-shop deployment/catalogue
+## 9. Alerting and Slack Notifications
+
+Project configuration references include `availability-alert.yaml`,
+`slack-test-alert.yaml`, an `AlertmanagerConfig` named
+`robot-shop-slack`, and a Kubernetes Secret named `slack-webhook`.
+
+Check current resources:
+
+``` bash
+kubectl get prometheusrules -A
+kubectl get alertmanagerconfigs -A
+kubectl get secrets -n monitoring
 ```
 
-Confirm the actual deployment name first.
+Do not print, paste, or commit the Slack webhook URL or any other secret
+value.
 
-## 8. Availability SLO and Error Budget
+### Alert validation
 
-The project documents a **99.9% availability objective over a rolling 30-day window**.
+1.  Confirm the Prometheus rule is installed and loaded.
+2.  Confirm Alertmanager is running and discovers the notification
+    configuration.
+3.  Confirm the Slack webhook Secret exists and is referenced correctly.
+4.  Trigger only a controlled test alert.
+5.  Verify delivery in the intended Slack channel.
+6.  Remove or disable test-only alerts after validation.
 
-| Measurement | Value |
-|---|---:|
-| Availability objective | 99.9% |
-| Allowed unavailability | 0.1% |
-| Minutes in 30 days | 43,200 |
-| Theoretical error budget at 99.9% | 43.2 minutes |
+A controlled Slack test alert was reported as successful during project
+work. This confirms that the tested path worked at that time, not that
+every future alert will be delivered.
 
-Calculation:
+## 10. Availability SLO and Error Budget
 
-```text
-30 days × 24 hours × 60 minutes = 43,200 minutes
-43,200 minutes × 0.001 = 43.2 minutes
+A 99.9% availability target over 30 days allows a theoretical
+unavailability budget of approximately **43.2 minutes**: - Total time in
+30 days: 43,200 minutes. - 0.1% of 43,200 minutes: 43.2 minutes.
+
+I implemented Service Level Indicator (SLI) and Service Level Objective (SLO) monitoring for the Robot Shop catalogue service using Prometheus and Grafana. The SLI measures the percentage of successful HTTP requests, while the SLO defines a target of 99.9% over a rolling 30-day window. A PromQL comparison evaluates whether the service meets the target, and Grafana visualizes the result
+
+## 11. Troubleshooting
+
+  ------------------------------------------------------------------------------------------------
+  Symptom                 Checks                                           Possible next step
+  ----------------------- ------------------------------------------------ -----------------------
+  Pods are pending        `kubectl describe pod <pod> -n <namespace>`      Inspect scheduling
+                                                                           events, resource
+                                                                           requests, and node
+                                                                           capacity.
+
+  Pods are restarting     `kubectl logs <pod> -n <namespace> --previous`   Inspect previous
+                                                                           container logs and pod
+                                                                           events.
+
+  Grafana has no data     Check Prometheus targets and the selected data   Verify scrape
+                          source                                           configuration, labels,
+                                                                           and time range.
+
+  A PromQL query returns  Query the raw metric name first                  Confirm metric/label
+  no series                                                                names, namespace, and
+                                                                           scrape status.
+
+  Loki has no logs        Inspect Fluent Bit logs and Loki services        Check output
+                                                                           configuration,
+                                                                           connectivity, labels,
+                                                                           and storage.
+
+  Traces are missing      Inspect instrumentation and collector/exporter   Verify endpoint,
+                          logs                                             protocol, sampling, and
+                                                                           backend connectivity.
+
+  Slack alerts are not    Inspect Alertmanager logs and configuration      Verify routing,
+  delivered                                                                receiver settings,
+                                                                           Secret reference, and
+                                                                           webhook validity
+                                                                           without exposing the
+                                                                           secret.
+
+  A resource is not found `kubectl get <resource> -A`                      Confirm namespace,
+                                                                           installation status,
+                                                                           and CRD availability.
+  ------------------------------------------------------------------------------------------------
+
+Consult `monitoring/docs/runbook.md` in the current repository.
+
+## 12. Security and Cost Considerations
+
+### Security
+
+-   Never commit AWS credentials, kubeconfig files, Slack webhook URLs,
+    passwords, or other secrets.
+-   Use IAM roles and least-privilege access where possible.
+-   Restrict access to Grafana, Prometheus, Loki, Jaeger, and Kubernetes
+    APIs.
+-   Avoid publicly exposing internal observability services without
+    suitable authentication and access controls.
+-   Rotate any secret that may have been exposed.
+-   Review image sources, versions, and permissions before production
+    use.
+
+### Cost
+
+-   Monitor EKS, EC2, load balancer, storage, logging, and data-transfer
+    costs.
+-   Set appropriate CPU and memory requests/limits.
+-   Configure log retention and sampling to manage storage and ingestion
+    costs.
+-   Remove unused resources after testing.
+-   Confirm whether persistence is enabled and how much storage is
+    provisioned.
+
+## 13. Evidence and Project Limitations
+
+Capture evidence from the actual environment for a complete capstone
+submission. Useful evidence includes: - Running application pods and
+services. - Helm release status. - Prometheus targets showing expected
+scrape targets as healthy. - Grafana panels for traffic, errors,
+latency, restarts, CPU, and memory. - Loki queries returning relevant
+application logs. - Jaeger showing traces from instrumented requests, if
+tracing is active. - Alert rules and a successful controlled Slack
+notification. - Terraform plan/apply output, if Terraform was used to
+provision infrastructure.
+
+Do not use a single screenshot or test as proof of continuous
+availability. Record the date, namespace, relevant configuration, and
+test conditions for each item of evidence.
+
+## 14. Cleanup
+
+Only run cleanup commands when you are certain the resources are no
+longer needed. These commands can remove live workloads or
+infrastructure.
+
+If monitoring was installed as the Helm release shown here:
+
+``` bash
+helm uninstall monitoring -n monitoring
 ```
 
-This is the theoretical error budget for the stated window and target. It is not a measured result.
+If appropriate, remove the application namespace:
 
-**Current limitation:** the Catalogue alert detects scrape failure or an absent target series, but a validated rolling 30-day SLO calculation and error-budget consumption metric remain to be implemented. Define the service boundary and availability signal before reporting SLO compliance or extending the objective to the entire application.
+``` bash
+kubectl delete namespace robot-shop
+```
 
+Delete AWS infrastructure only through the actual infrastructure-as-code
+workflow after reviewing dependencies and data-retention requirements.
+Do not delete a shared or production cluster just to clean up this
+capstone environment.
 
-## 9. Troubleshooting Guide
+## 15. Conclusion
 
-| Symptom | Checks |
-|---|---|
-| Pod is not ready | Run `kubectl describe pod <pod-name> -n <namespace>` and inspect events, probes, image pulls, and resource limits. |
-| Service has no endpoints | Check pod labels/selectors and readiness with `kubectl get pods --show-labels -n <namespace>` and `kubectl describe svc <service-name> -n <namespace>`. |
-| Prometheus target is down or missing | Check target discovery, ServiceMonitor/PodMonitor selectors, namespace labels, service ports, and scrape configuration. |
-| Alert is firing but Slack receives nothing | Check the alert labels, Alertmanager route matchers, receiver configuration, Secret existence, and Alertmanager logs. Never print the webhook value. |
-| No logs appear in Loki | Check Fluent Bit pod status and output configuration, Loki readiness, label selectors, and Grafana's selected Loki data source. |
-| No traces appear in Jaeger | Check service instrumentation, exporter endpoint, collector health, sampling, and whether spans are being generated. |
-| Helm upgrade behaves unexpectedly | Inspect `helm status`, `helm history`, current values, and the proposed diff/plan before making another change. |
+This capstone brings together Kubernetes deployment and observability
+practices for Robot Shop on Amazon EKS. Prometheus and Grafana support
+metrics and dashboards, Fluent Bit and Loki support log collection and
+querying, OpenTelemetry and Jaeger support distributed tracing when
+properly instrumented, and Alertmanager with Slack supports notification
+workflows.
 
-Use `monitoring/docs/runbook.md` if it exists in your checkout for environment-specific troubleshooting steps. Record significant incidents, root causes, and follow-up actions in `monitoring/docs/postmortem.md` if that file is maintained by the project.
-
-## 10. Security and Cost Management
-
-- **Credentials:** Use approved AWS authentication and Kubernetes Secrets or an approved secret manager for sensitive values.
-- **Git hygiene:** Do not commit webhook URLs, tokens, passwords, private keys, local credentials, Terraform state, or generated manifests containing secrets.
-- **Secret exposure:** If a webhook or credential is exposed, revoke/rotate it and review repository history and logs for further exposure.
-- **Infrastructure cost:** EKS, worker nodes, storage, load balancers, and telemetry retention may incur ongoing charges.
-- **Resource usage:** Set appropriate resource requests/limits and configure storage and retention intentionally.
-- **Production readiness:** Review access control, network exposure, encryption, backups, and alert coverage before production use.
-- **Sample application limitations:** The upstream Robot Shop README describes the application as a learning sandbox, not a production-secure reference without additional hardening.
+The final submission should distinguish implemented and tested features
+from planned or partially configured components, include evidence from
+the actual environment, and document remaining gaps.
 
 
-## 11. Project Documentation and Evidence
+
+##  Project Documentation and Evidence
 
 - `monitoring/docs/runbook.md` — operational troubleshooting.
 - `monitoring/docs/postmortem.md` — incident analysis and follow-up actions.
